@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sokoban Game</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+        }
+        .nav-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-success { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; }
+        .btn-warning { background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        .login-section {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .role-selector {
+            display: flex;
+            gap: 1rem;
+            margin-top: 10px;
+        }
+        .role-option {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .role-option.selected {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        .level-selector {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .level-btn {
+            margin: 5px;
+            padding: 10px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .level-btn:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+        .level-btn.active {
+            background: #28a745;
+        }
+        .game-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .game-board {
+            border: 3px solid #333;
+            display: inline-block;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .game-row {
+            display: flex;
+        }
+        .game-cell {
+            width: 40px;
+            height: 40px;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            background: #fff;
+        }
+        .wall { background: #8B4513; color: white; }
+        .player { background: #007bff; color: white; border-radius: 50%; }
+        .box { background: #ffc107; color: #856404; border-radius: 6px; }
+        .goal { background: #28a745; color: white; border-radius: 50%; }
+        .box-on-goal { background: #dc3545; color: white; border-radius: 6px; }
+        .player-on-goal { background: #17a2b8; color: white; border-radius: 50%; }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .control-btn {
+            margin: 5px;
+            padding: 10px 20px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .control-btn:hover {
+            background: #545b62;
+            transform: translateY(-2px);
+        }
+        .win-message {
+            text-align: center;
+            margin: 20px 0;
+            padding: 30px;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border: 2px solid #28a745;
+            border-radius: 15px;
+            color: #155724;
+            display: none;
+        }
+        .next-level-btn {
+            margin: 10px;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .next-level-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(40, 167, 69, 0.3);
+        }
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #155724;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .user-info {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 10px;
+        }
+        .role-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .role-admin { background: #dc3545; color: white; }
+        .role-player { background: #28a745; color: white; }
+        .sprint-game-section {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .sprint-container {
+            text-align: center;
+        }
+        .sprint-title {
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        .sprint-subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+        .sprint-input {
+            width: 100%;
+            max-width: 300px;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }
+        .sprint-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .tap-button {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 10px 30px rgba(40, 167, 69, 0.3);
+            animation: pulse 2s infinite;
+        }
+        .tap-button:hover {
+            transform: scale(1.1);
+        }
+        .tap-button:active {
+            transform: scale(0.95);
+        }
+        .tap-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            animation: none;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .countdown-display {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #dc3545;
+            margin: 2rem 0;
+            animation: bounce 1s ease-in-out;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        .tap-counter {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #333;
+            margin: 1rem 0;
+        }
+        .players-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+        .player-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            min-width: 120px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .player-card.winner {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: white;
+            animation: bounce 1s ease-in-out;
+        }
+        .player-name {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .player-taps {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        .stat-label {
+            color: #666;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧩 Sokoban Game</h1>
+        <p class="subtitle">Push boxes to their targets in this classic puzzle game! Compete with other players and climb the leaderboard.</p>
+        
+        <!-- Navigation Section -->
+        <div class="nav-section">
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="showGame()">🎮 Play Game</button>
+                <button class="btn btn-warning" onclick="showSprintGame()">⚡ Sprint Game</button>
+                <button class="btn btn-secondary" onclick="showLeaderboard()">🏆 Leaderboard</button>
+                <div id="auth-buttons">
+                    <button class="btn btn-success" onclick="showLogin()">🔐 Login</button>
+                    <button class="btn btn-info" onclick="showRegister()">📝 Register</button>
+                </div>
+                <div id="user-actions" style="display: none;">
+                    <button class="btn btn-danger" onclick="showAdminDashboard()" id="admin-btn" style="display: none;">🛠️ Admin Dashboard</button>
+                    <button class="btn btn-outline-secondary" onclick="logout()">🚪 Logout</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Info Section -->
+        <div class="user-info" id="user-info" style="display: none;">
+            <p>Welcome back, <strong id="username-display"></strong>! 
+                <span class="role-badge" id="role-badge"></span>
+            </p>
+        </div>
+
+        <!-- Login Section -->
+        <div class="login-section" id="login-section" style="display: none;">
+            <h3>Login</h3>
+            <div class="form-group">
+                <label>Username:</label>
+                <input type="text" id="login-username" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="password" id="login-password" placeholder="Enter password">
+            </div>
+            <button class="btn btn-primary" onclick="login()">Login</button>
+            <button class="btn btn-secondary" onclick="hideLogin()">Cancel</button>
+            <div id="login-message"></div>
+        </div>
+
+        <!-- Register Section -->
+        <div class="login-section" id="register-section" style="display: none;">
+            <h3>Register</h3>
+            <div class="form-group">
+                <label>Username:</label>
+                <input type="text" id="register-username" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="register-email" placeholder="Enter email">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="password" id="register-password" placeholder="Enter password">
+            </div>
+            <div class="form-group">
+                <label>Account Type:</label>
+                <div class="role-selector">
+                    <div class="role-option selected" onclick="selectRole('player')">
+                        <input type="radio" name="role" value="player" checked> Player
+                    </div>
+                    <div class="role-option" onclick="selectRole('admin')">
+                        <input type="radio" name="role" value="admin"> Admin
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="register()">Register</button>
+            <button class="btn btn-secondary" onclick="hideRegister()">Cancel</button>
+            <div id="register-message"></div>
+        </div>
+
+        <!-- Game Section -->
+        <div id="game-section" style="display: none;">
+            <!-- Level Selection -->
+            <div class="level-selector">
+                <h3>Select Level</h3>
+                <div id="level-buttons"></div>
+            </div>
+
+            <!-- Game Board -->
+            <div class="game-container">
+                <div id="timer-display" style="text-align: center; margin-bottom: 20px; font-size: 1.5rem; font-weight: bold; color: #333; background: #f8f9fa; padding: 10px; border-radius: 8px; border: 2px solid #007bff;">
+                    ⏱️ Time: <span id="timer-value">0</span>s
+                </div>
+                <div id="game-board" class="game-board"></div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <button class="control-btn" onclick="movePlayer('up')">↑ Up</button>
+                <button class="control-btn" onclick="movePlayer('down')">↓ Down</button>
+                <button class="control-btn" onclick="movePlayer('left')">← Left</button>
+                <button class="control-btn" onclick="movePlayer('right')">→ Right</button>
+                <button class="control-btn" onclick="resetLevel()">Reset Level</button>
+            </div>
+
+            <!-- Win Message -->
+            <div id="win-message" class="win-message">
+                <h2>🎉 YOU WIN! 🎉</h2>
+                <p>Congratulations! You completed the level!</p>
+                <button id="next-level-btn" class="next-level-btn" onclick="nextLevel()">Next Level</button>
+            </div>
+        </div>
+
+        <!-- Sprint Game Section -->
+        <div class="sprint-game-section" id="sprint-game-section">
+            <div class="sprint-container">
+                <h2 class="sprint-title">⚡ Sprint Game</h2>
+                <p class="sprint-subtitle">Tap as fast as you can for 15 seconds!</p>
+                
+                <div id="sprint-username-input">
+                    <input type="text" id="sprint-username" class="sprint-input" placeholder="Enter your username">
+                    <br>
+                    <button class="btn btn-primary" onclick="joinSprintGame()">Join Game</button>
+                    <button class="btn btn-secondary" onclick="hideSprintGame()">Back to Home</button>
+                </div>
+
+                <div id="sprint-waiting" style="display: none;">
+                    <p>Waiting for players to join...</p>
+                    <div class="players-list" id="sprint-players-list"></div>
+                </div>
+
+                <div id="sprint-countdown" style="display: none;">
+                    <p>Get ready to tap!</p>
+                    <div class="countdown-display" id="countdown-display">3</div>
+                </div>
+
+                <div id="sprint-active" style="display: none;">
+                    <p>Tap as fast as you can!</p>
+                    <div class="tap-counter" id="tap-counter">0</div>
+                    <p>Time remaining: <span id="time-remaining">15</span>s</p>
+                    <button class="tap-button" id="tap-button" onclick="tap()">TAP!</button>
+                    <p style="margin-top: 1rem; color: #666;">Click the button or press SPACEBAR</p>
+                </div>
+
+                <div id="sprint-results" style="display: none;">
+                    <h3>🏆 Final Results 🏆</h3>
+                    <div class="players-list" id="results-list"></div>
+                    <button class="btn btn-primary" onclick="hideSprintGame()">Back to Home</button>
+                </div>
+
+                <div id="sprint-error" class="error" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="total-puzzles">4</div>
+                <div class="stat-label">Puzzle Levels</div>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div style="margin-top: 30px; padding: 20px; background: #e9ecef; border-radius: 10px;">
+            <h4>How to Play:</h4>
+            <ul>
+                <li>Use arrow keys to move the player (blue circle)</li>
+                <li>Push boxes (yellow squares) onto goals (green circles)</li>
+                <li>Complete all goals to win the level</li>
+                <li>Press ESC to reset the current level</li>
+                <li>Login to save your scores and access admin-created levels</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let currentUser = null;
+        let currentLevel = 0;
+        let gameState = null;
+        let allLevels = [];
+        let socket = null;
+        let sprintGameId = null;
+        let sprintGameStatus = 'waiting';
+        let myTaps = 0;
+        let timeRemaining = 15;
+        let gameStartTime = null;
+        let timerInterval = null;
+
+        // Default levels
+        const defaultLevels = [
+            {
+                id: 1,
+                name: "Level 1",
+                grid: [ 
+                    ["#", "#", "#", "#", "#", "#", "#"], 
+                    ["#", " ", " ", " ", " ", " ", "#"], 
+                    ["#", " ", "P", " ", "B", " ", "#"], 
+                    ["#", " ", " ", " ", " ", " ", "#"], 
+                    ["#", " ", ".", " ", " ", " ", "#"], 
+                    ["#", " ", " ", " ", " ", " ", "#"], 
+                    ["#", "#", "#", "#", "#", "#", "#"] 
+                ]
+            },
+            {
+                id: 2,
+                name: "Level 2",
+                grid: [
+                    ["#", "#", "#", "#", "#"],
+                    ["#", ".", " ", " ", "#"],
+                    ["#", "P", "B", " ", "#"],
+                    ["#", " ", " ", " ", "#"],
+                    ["#", "#", "#", "#", "#"]
+                ]
+            },
+            {
+                id: 3,
+                name: "Level 3",
+                grid: [
+                    ["#", "#", "#", "#", "#", "#", "#"],
+                    ["#", " ", " ", " ", " ", " ", "#"],
+                    ["#", " ", "P", "B", "B", " ", "#"],
+                    ["#", " ", " ", " ", " ", " ", "#"],
+                    ["#", " ", ".", ".", " ", " ", "#"],
+                    ["#", " ", " ", " ", " ", " ", "#"],
+                    ["#", "#", "#", "#", "#", "#", "#"]
+                ]
+            },
+            {
+                id: 4,
+                name: "Level 4",
+                grid: [
+                    ["#", "#", "#", "#", "#", "#", "#", "#"],
+                    ["#", " ", " ", " ", " ", " ", " ", "#"],
+                    ["#", " ", "P", " ", " ", "B", " ", "#"],
+                    ["#", " ", " ", " ", " ", " ", " ", "#"],
+                    ["#", " ", " ", " ", " ", " ", " ", "#"],
+                    ["#", " ", " ", ".", " ", " ", " ", "#"],
+                    ["#", " ", " ", " ", " ", " ", " ", "#"],
+                    ["#", "#", "#", "#", "#", "#", "#", "#"]
+                ]
+            }
+        ];
+
+        // Initialize game
+        function initGame() {
+            allLevels = [...defaultLevels];
+            loadAdminLevels();
+            renderLevelButtons();
+            loadLevel(0);
+            setupKeyboardControls();
+            updateNavigation();
+            updatePuzzleCount();
+        }
+
+        // Load admin-created levels
+        async function loadAdminLevels() {
+            try {
+                const response = await fetch('http://localhost:5000/api/puzzles');
+                const data = await response.json();
+                
+                if (data.puzzles && data.puzzles.length > 0) {
+                    const adminLevels = data.puzzles.map(puzzle => {
+                        try {
+                            const layout = JSON.parse(puzzle.layout);
+                            return {
+                                id: puzzle.id + 1000, // Offset to avoid conflicts with default levels
+                                name: puzzle.name,
+                                grid: layout.grid
+                            };
+                        } catch (parseError) {
+                            console.error('Error parsing puzzle layout:', puzzle.name, parseError);
+                            return null;
+                        }
+                    }).filter(level => level !== null); // Remove failed parses
+                    
+                    allLevels = [...defaultLevels, ...adminLevels];
+                    console.log('Loaded levels:', allLevels); // Debug log
+                    renderLevelButtons();
+                    updatePuzzleCount();
+                } else {
+                    allLevels = [...defaultLevels];
+                    renderLevelButtons();
+                    updatePuzzleCount();
+                }
+            } catch (error) {
+                console.error('Error loading admin levels:', error);
+                allLevels = [...defaultLevels];
+                renderLevelButtons();
+                updatePuzzleCount();
+            }
+        }
+
+        // Update puzzle count display
+        function updatePuzzleCount() {
+            const totalPuzzlesElement = document.getElementById('total-puzzles');
+            if (totalPuzzlesElement) {
+                totalPuzzlesElement.textContent = allLevels.length;
+            }
+        }
+
+        // Navigation functions
+        function showGame() {
+            hideAllSections();
+            document.getElementById('game-section').style.display = 'block';
+        }
+
+        function showSprintGame() {
+            hideAllSections();
+            document.getElementById('sprint-game-section').style.display = 'block';
+            document.getElementById('sprint-username-input').style.display = 'block';
+        }
+
+        function hideSprintGame() {
+            document.getElementById('sprint-game-section').style.display = 'none';
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+
+        function showLogin() {
+            document.getElementById('login-section').style.display = 'block';
+        }
+
+        function hideLogin() {
+            document.getElementById('login-section').style.display = 'none';
+        }
+
+        function showRegister() {
+            document.getElementById('register-section').style.display = 'block';
+        }
+
+        function hideRegister() {
+            document.getElementById('register-section').style.display = 'none';
+        }
+
+        function hideAllSections() {
+            document.getElementById('game-section').style.display = 'none';
+            document.getElementById('sprint-game-section').style.display = 'none';
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('register-section').style.display = 'none';
+        }
+
+        async function showLeaderboard() {
+            try {
+                let leaderboardHtml = '<h2>🏆 Level Leaderboards <span id="refresh-indicator" style="font-size: 0.8em; color: #666;">🔄</span></h2>';
+                
+                // Get leaderboard for each level
+                for (let i = 0; i < allLevels.length; i++) {
+                    const level = allLevels[i];
+                    leaderboardHtml += `<h3>${level.name}</h3>`;
+                    
+                    // For default levels (1, 2, 3, 4), show "No scores yet" since they're not in database
+                    if (level.id === 1 || level.id === 2 || level.id === 3 || level.id === 4) {
+                        leaderboardHtml += '<p style="color: #666; font-style: italic;">No scores yet (Default level)</p>';
+                    } else {
+                        // For admin-created levels, try to get scores from database
+                        try {
+                            const response = await fetch(`http://localhost:5000/api/scores/leaderboard/${level.id - 1000}`); // Subtract offset
+                            const data = await response.json();
+                            
+                            if (data.leaderboard && data.leaderboard.length > 0) {
+                                leaderboardHtml += '<ul>';
+                                data.leaderboard.forEach((entry, index) => {
+                                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                                    leaderboardHtml += `
+                                        <li style="padding: 8px; margin: 3px 0; background: #f8f9fa; border-radius: 5px;">
+                                            <strong>#${index + 1}</strong> ${medal} ${entry.username} - ${entry.time_taken}s
+                                        </li>
+                                    `;
+                                });
+                                leaderboardHtml += '</ul>';
+                            } else {
+                                leaderboardHtml += '<p style="color: #666; font-style: italic;">No scores yet</p>';
+                            }
+                        } catch (error) {
+                            console.error(`Error loading leaderboard for level ${level.id}:`, error);
+                            leaderboardHtml += '<p style="color: #666; font-style: italic;">No scores yet</p>';
+                        }
+                    }
+                }
+                
+                // Create a modal or overlay to show leaderboard
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(0,0,0,0.8); display: flex; justify-content: center;
+                    align-items: center; z-index: 10000;
+                `;
+                modal.innerHTML = `
+                    <div style="background: white; padding: 30px; border-radius: 15px; max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                        ${leaderboardHtml}
+                        <button onclick="this.parentElement.parentElement.remove()" 
+                                style="margin-top: 20px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            Close
+                        </button>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+                // Remove refresh indicator after modal is created
+                setTimeout(() => {
+                    const refreshIndicator = document.getElementById('refresh-indicator');
+                    if (refreshIndicator) {
+                        refreshIndicator.style.display = 'none';
+                    }
+                }, 100);
+            } catch (error) {
+                console.error('Failed to load leaderboard:', error);
+                alert('Failed to load leaderboard. Please try again.');
+            }
+        }
+
+        function showAdminDashboard() {
+            window.open('admin.html', '_blank');
+        }
+
+        // Role selection
+        function selectRole(role) {
+            document.querySelectorAll('.role-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            document.querySelector(`input[value="${role}"]`).checked = true;
+        }
+
+        // Authentication
+        async function login() {
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            
+            if (!username || !password) {
+                showMessage('login-message', 'Please enter both username and password', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.token) {
+                    currentUser = data.user;
+                    localStorage.setItem('token', data.token);
+                    showMessage('login-message', 'Login successful!', 'success');
+                    updateNavigation();
+                    hideLogin();
+                    
+                    if (data.user.role === 'admin') {
+                        setTimeout(() => {
+                            if (confirm('You are logged in as an admin. Would you like to open the Admin Dashboard?')) {
+                                showAdminDashboard();
+                            }
+                        }, 1000);
+                    }
+                } else {
+                    showMessage('login-message', data.error || 'Login failed', 'error');
+                }
+            } catch (error) {
+                showMessage('login-message', 'Login failed: ' + error.message, 'error');
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('register-username').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const role = document.querySelector('input[name="role"]:checked').value;
+            
+            if (!username || !email || !password) {
+                showMessage('register-message', 'Please fill in all fields', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password, role })
+                });
+                
+                const data = await response.json();
+                
+                if (data.token) {
+                    currentUser = data.user;
+                    localStorage.setItem('token', data.token);
+                    showMessage('register-message', 'Registration successful!', 'success');
+                    updateNavigation();
+                    hideRegister();
+                } else {
+                    showMessage('register-message', data.error || 'Registration failed', 'error');
+                }
+            } catch (error) {
+                showMessage('register-message', 'Registration failed: ' + error.message, 'error');
+            }
+        }
+
+        function logout() {
+            // Reset game state
+            currentUser = null;
+            currentLevel = 0;
+            gameState = null;
+            stopTimer();
+            hideWinMessage();
+            
+            // Clear stored data
+            localStorage.removeItem('token');
+            
+            // Update UI
+            updateNavigation();
+            hideAllSections();
+        }
+
+        function updateNavigation() {
+            const authButtons = document.getElementById('auth-buttons');
+            const userActions = document.getElementById('user-actions');
+            const userInfo = document.getElementById('user-info');
+            const adminBtn = document.getElementById('admin-btn');
+            
+            if (currentUser) {
+                authButtons.style.display = 'none';
+                userActions.style.display = 'block';
+                userInfo.style.display = 'block';
+                
+                document.getElementById('username-display').textContent = currentUser.username;
+                const roleBadge = document.getElementById('role-badge');
+                roleBadge.textContent = currentUser.role.toUpperCase();
+                roleBadge.className = `role-badge role-${currentUser.role}`;
+                
+                if (currentUser.role === 'admin') {
+                    adminBtn.style.display = 'inline-block';
+                } else {
+                    adminBtn.style.display = 'none';
+                }
+            } else {
+                authButtons.style.display = 'block';
+                userActions.style.display = 'none';
+                userInfo.style.display = 'none';
+            }
+        }
+
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = type;
+        }
+
+        // Game functions
+        function renderLevelButtons() {
+            const container = document.getElementById('level-buttons');
+            if (!container) {
+                console.error('Level buttons container not found');
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            console.log('Rendering level buttons for levels:', allLevels);
+            
+            allLevels.forEach((level, index) => {
+                const button = document.createElement('button');
+                button.className = 'level-btn';
+                button.textContent = level.name;
+                button.setAttribute('data-level-index', index);
+                
+                // Use addEventListener instead of onclick for better event handling
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const levelIndex = parseInt(button.getAttribute('data-level-index'));
+                    console.log('Level button clicked:', levelIndex, level.name);
+                    loadLevel(levelIndex);
+                });
+                
+                if (index === currentLevel) {
+                    button.classList.add('active');
+                }
+                container.appendChild(button);
+            });
+        }
+
+        function loadLevel(levelIndex) {
+            console.log('Loading level:', levelIndex, 'Total levels:', allLevels.length);
+            if (levelIndex < 0 || levelIndex >= allLevels.length) {
+                console.error('Invalid level index:', levelIndex);
+                return;
+            }
+            
+            // Reset any previous game state
+            stopTimer();
+            hideWinMessage();
+            
+            currentLevel = levelIndex;
+            const level = allLevels[levelIndex];
+            console.log('Loading level data:', level);
+            
+            // Find all target positions
+            const targets = [];
+            for (let row = 0; row < level.grid.length; row++) {
+                for (let col = 0; col < level.grid[row].length; col++) {
+                    if (level.grid[row][col] === '.') {
+                        targets.push({ row, col });
+                    }
+                }
+            }
+            
+            gameState = {
+                grid: level.grid.map(row => [...row]),
+                originalGrid: level.grid.map(row => [...row]),
+                targets: targets
+            };
+            
+            // Start timer automatically when level loads
+            gameStartTime = Date.now();
+            startTimer();
+            renderGameBoard();
+            renderLevelButtons();
+        }
+
+        function renderGameBoard() {
+            const container = document.getElementById('game-board');
+            container.innerHTML = '';
+            
+            gameState.grid.forEach((row, rowIndex) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'game-row';
+                
+                row.forEach((cell, colIndex) => {
+                    const cellDiv = document.createElement('div');
+                    cellDiv.className = 'game-cell';
+                    
+                    // Check if this position is a target
+                    const isTarget = gameState.targets.some(target => target.row === rowIndex && target.col === colIndex);
+                    
+                    if (cell === '#') {
+                        cellDiv.textContent = '🧱';
+                        cellDiv.classList.add('wall');
+                    } else if (cell === 'P') {
+                        cellDiv.textContent = '🧑';
+                        cellDiv.classList.add('player');
+                        if (isTarget) {
+                            cellDiv.classList.add('player-on-goal');
+                        }
+                    } else if (cell === 'B') {
+                        cellDiv.textContent = '📦';
+                        cellDiv.classList.add('box');
+                        if (isTarget) {
+                            cellDiv.classList.add('box-on-goal');
+                        }
+                    } else if (cell === '.') {
+                        cellDiv.textContent = '🎯';
+                        cellDiv.classList.add('goal');
+                    } else if (cell === ' ') {
+                        cellDiv.textContent = '';
+                    }
+                    
+                    rowDiv.appendChild(cellDiv);
+                });
+                
+                container.appendChild(rowDiv);
+            });
+        }
+
+        function movePlayer(direction) {
+            if (!gameState) return;
+            
+            const playerPos = findPlayerPosition();
+            if (!playerPos) return;
+            
+            const { row, col } = playerPos;
+            let newRow = row;
+            let newCol = col;
+            
+            switch (direction) {
+                case 'up': newRow--; break;
+                case 'down': newRow++; break;
+                case 'left': newCol--; break;
+                case 'right': newCol++; break;
+            }
+            
+            if (isValidMove(row, col, newRow, newCol)) {
+                performMove(row, col, newRow, newCol);
+                renderGameBoard();
+                
+                if (checkWinCondition()) {
+                    showWinMessage();
+                }
+            }
+        }
+
+        function findPlayerPosition() {
+            for (let row = 0; row < gameState.grid.length; row++) {
+                for (let col = 0; col < gameState.grid[row].length; col++) {
+                    if (gameState.grid[row][col] === 'P') {
+                        return { row, col };
+                    }
+                }
+            }
+            return null;
+        }
+
+        function isValidMove(fromRow, fromCol, toRow, toCol) {
+            if (toRow < 0 || toRow >= gameState.grid.length || 
+                toCol < 0 || toCol >= gameState.grid[toRow].length) {
+                return false;
+            }
+            
+            const targetCell = gameState.grid[toRow][toCol];
+            
+            if (targetCell === '#') return false;
+            
+            if (targetCell === 'B') {
+                const pushRow = toRow + (toRow - fromRow);
+                const pushCol = toCol + (toCol - fromCol);
+                
+                if (pushRow < 0 || pushRow >= gameState.grid.length || 
+                    pushCol < 0 || pushCol >= gameState.grid[pushRow].length) {
+                    return false;
+                }
+                
+                const pushTarget = gameState.grid[pushRow][pushCol];
+                if (pushTarget === '#' || pushTarget === 'B') {
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+
+        function performMove(fromRow, fromCol, toRow, toCol) {
+            const targetCell = gameState.grid[toRow][toCol];
+            
+            if (targetCell === 'B') {
+                const pushRow = toRow + (toRow - fromRow);
+                const pushCol = toCol + (toCol - fromCol);
+                const pushTarget = gameState.grid[pushRow][pushCol];
+                
+                // If pushing box onto a target, replace target with box
+                if (pushTarget === '.') {
+                    gameState.grid[pushRow][pushCol] = 'B';
+                } else {
+                    gameState.grid[pushRow][pushCol] = 'B';
+                }
+            }
+            
+            // Move player to the target position
+            gameState.grid[fromRow][fromCol] = ' ';
+            gameState.grid[toRow][toCol] = 'P';
+        }
+
+        function checkWinCondition() {
+            // Check if all targets have boxes on them
+            for (const target of gameState.targets) {
+                if (gameState.grid[target.row][target.col] !== 'B') {
+                    return false; // This target doesn't have a box on it
+                }
+            }
+            return true; // All targets have boxes on them
+        }
+
+        function showWinMessage() {
+            stopTimer(); // Stop the timer when level is completed
+            
+            const winMessage = document.getElementById('win-message');
+            winMessage.style.display = 'block';
+            
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+            
+            // Save score if user is logged in
+            if (currentUser) {
+                saveScore();
+            }
+            
+            const nextBtn = document.getElementById('next-level-btn');
+            if (currentLevel >= allLevels.length - 1) {
+                nextBtn.style.display = 'none';
+            } else {
+                nextBtn.style.display = 'inline-block';
+            }
+            
+            // Auto-reset level after 10 seconds so other players can play
+            setTimeout(() => {
+                resetLevel();
+            }, 10000);
+        }
+
+        async function saveScore() {
+            if (!currentUser) return;
+            
+            try {
+                const timeTaken = Math.floor((Date.now() - gameStartTime) / 1000);
+                const level = allLevels[currentLevel];
+                
+                // For default levels (1, 2, 3, 4), we can't save scores since they're not in database
+                if (level.id === 1 || level.id === 2 || level.id === 3 || level.id === 4) {
+                    console.log('Cannot save score for default level (not in database)');
+                    return;
+                }
+                
+                // For admin-created levels, use the actual database ID
+                const puzzleId = level.id - 1000; // Subtract the offset we added
+                
+                const response = await fetch('http://localhost:5000/api/scores', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        puzzleId: puzzleId,
+                        timeTaken: timeTaken
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log('Score saved successfully');
+                    showNotification('Score saved! Leaderboard updated.', 'success');
+                    // Always refresh leaderboard after saving score
+                    setTimeout(() => {
+                        refreshLeaderboard();
+                    }, 500);
+                } else {
+                    console.error('Failed to save score');
+                    showNotification('Failed to save score', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving score:', error);
+            }
+        }
+
+        // Global leaderboard refresh function
+        function refreshLeaderboard() {
+            // Check if leaderboard modal is currently open
+            const leaderboardModal = document.querySelector('[style*="position: fixed"]');
+            if (leaderboardModal) {
+                console.log('Refreshing leaderboard...');
+                showLeaderboard();
+            } else {
+                console.log('Leaderboard not open, skipping refresh');
+            }
+        }
+
+        // Global leaderboard update function that can be called from anywhere
+        function updateLeaderboard() {
+            console.log('Updating leaderboard...');
+            refreshLeaderboard();
+        }
+
+        // Make updateLeaderboard globally available
+        window.updateLeaderboard = updateLeaderboard;
+
+        // Notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: bold;
+                z-index: 10001;
+                max-width: 300px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+            `;
+            
+            // Set background color based on type
+            switch (type) {
+                case 'success':
+                    notification.style.backgroundColor = '#28a745';
+                    break;
+                case 'error':
+                    notification.style.backgroundColor = '#dc3545';
+                    break;
+                case 'warning':
+                    notification.style.backgroundColor = '#ffc107';
+                    notification.style.color = '#000';
+                    break;
+                default:
+                    notification.style.backgroundColor = '#007bff';
+            }
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        function hideWinMessage() {
+            document.getElementById('win-message').style.display = 'none';
+        }
+
+        function startTimer() {
+            stopTimer(); // Clear any existing timer
+            gameStartTime = Date.now();
+            timerInterval = setInterval(updateTimer, 100); // Update every 100ms for smooth display
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function updateTimer() {
+            if (gameStartTime) {
+                const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+                document.getElementById('timer-value').textContent = elapsed;
+            }
+        }
+
+        function nextLevel() {
+            if (currentLevel < allLevels.length - 1) {
+                loadLevel(currentLevel + 1);
+            }
+        }
+
+        function resetLevel() {
+            if (gameState && gameState.originalGrid) {
+                // Reset the grid to its original state
+                gameState.grid = gameState.originalGrid.map(row => [...row]);
+                renderGameBoard();
+                
+                // Reset and restart timer
+                stopTimer();
+                gameStartTime = Date.now();
+                startTimer();
+                
+                // Hide win message if showing
+                hideWinMessage();
+            }
+        }
+
+        function setupKeyboardControls() {
+            document.addEventListener('keydown', (e) => {
+                switch (e.key) {
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        movePlayer('up');
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        movePlayer('down');
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        movePlayer('left');
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        movePlayer('right');
+                        break;
+                    case 'Escape':
+                        e.preventDefault();
+                        resetLevel();
+                        break;
+                    case ' ':
+                        if (sprintGameStatus === 'active') {
+                            e.preventDefault();
+                            tap();
+                        }
+                        break;
+                }
+            });
+        }
+
+        // Sprint Game functions
+        async function joinSprintGame() {
+            const username = document.getElementById('sprint-username').value;
+            
+            if (!username.trim()) {
+                showSprintError('Please enter a username');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/sprint/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    sprintGameId = data.gameId;
+                    
+                    socket = io('http://localhost:5000');
+                    
+                    socket.on('connect', () => {
+                        socket.emit('join-sprint', {
+                            gameId: sprintGameId,
+                            username: username
+                        });
+                    });
+                    
+                    socket.on('players-updated', (data) => {
+                        updateSprintPlayers(data.players);
+                        sprintGameStatus = data.gameStatus;
+                    });
+                    
+                    socket.on('countdown', (data) => {
+                        showSprintCountdown(data.seconds);
+                    });
+                    
+                    socket.on('game-started', () => {
+                        startSprintGame();
+                    });
+                    
+                    socket.on('tap-update', (data) => {
+                        if (data.playerId === socket.id) {
+                            myTaps = data.taps;
+                            document.getElementById('tap-counter').textContent = myTaps;
+                        }
+                    });
+                    
+                    socket.on('game-ended', (data) => {
+                        showSprintResults(data.results);
+                    });
+                    
+                    socket.on('error', (data) => {
+                        showSprintError(data.message);
+                    });
+                    
+                    document.getElementById('sprint-username-input').style.display = 'none';
+                    document.getElementById('sprint-waiting').style.display = 'block';
+                    
+                } else {
+                    showSprintError('Failed to create game');
+                }
+            } catch (error) {
+                showSprintError('Failed to connect to server');
+            }
+        }
+
+        function updateSprintPlayers(players) {
+            const container = document.getElementById('sprint-players-list');
+            container.innerHTML = '';
+            
+            players.forEach(player => {
+                const playerCard = document.createElement('div');
+                playerCard.className = 'player-card';
+                playerCard.innerHTML = `
+                    <div class="player-name">${player.username}</div>
+                    <div class="player-taps">Ready</div>
+                `;
+                container.appendChild(playerCard);
+            });
+        }
+
+        function showSprintCountdown(seconds) {
+            document.getElementById('sprint-waiting').style.display = 'none';
+            document.getElementById('sprint-countdown').style.display = 'block';
+            document.getElementById('countdown-display').textContent = seconds;
+        }
+
+        function startSprintGame() {
+            document.getElementById('sprint-countdown').style.display = 'none';
+            document.getElementById('sprint-active').style.display = 'block';
+            sprintGameStatus = 'active';
+            timeRemaining = 15;
+            myTaps = 0;
+            
+            const timer = setInterval(() => {
+                timeRemaining--;
+                document.getElementById('time-remaining').textContent = timeRemaining;
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(timer);
+                    document.getElementById('tap-button').disabled = true;
+                }
+            }, 1000);
+        }
+
+        function tap() {
+            if (sprintGameStatus === 'active' && socket) {
+                socket.emit('tap', { gameId: sprintGameId });
+            }
+        }
+
+        function showSprintResults(results) {
+            document.getElementById('sprint-active').style.display = 'none';
+            document.getElementById('sprint-results').style.display = 'block';
+            sprintGameStatus = 'finished';
+            
+            const container = document.getElementById('results-list');
+            container.innerHTML = '';
+            
+            results.forEach((player, index) => {
+                const playerCard = document.createElement('div');
+                playerCard.className = 'player-card';
+                if (index === 0) {
+                    playerCard.classList.add('winner');
+                }
+                playerCard.innerHTML = `
+                    <div class="player-name">${index === 0 ? '👑 ' : ''}${player.username}</div>
+                    <div class="player-taps">${player.taps} taps</div>
+                `;
+                container.appendChild(playerCard);
+            });
+        }
+
+        function showSprintError(message) {
+            const errorDiv = document.getElementById('sprint-error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Initialize when page loads
+        window.onload = initGame;
+    </script>
+</body>
+</html>

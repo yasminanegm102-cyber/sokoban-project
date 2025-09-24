@@ -1,0 +1,1 @@
+-- Restored schema.sql file

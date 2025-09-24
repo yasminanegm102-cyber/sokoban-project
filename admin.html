@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sokoban Admin Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .admin-content {
+            display: none;
+        }
+        .login-section {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group textarea {
+            height: 300px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .puzzle-list {
+            margin-top: 30px;
+        }
+        .puzzle-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .puzzle-name {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        .puzzle-meta {
+            color: #666;
+            font-size: 14px;
+        }
+        .grid-preview {
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            background: white;
+            padding: 10px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
+        }
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="logout-btn btn-danger" onclick="logout()">Logout</button>
+        
+        <h1>🛠️ Admin Dashboard</h1>
+        
+        <!-- Login Section -->
+        <div id="login-section" class="login-section">
+            <h2>Admin Login Required</h2>
+            <div class="form-group">
+                <label for="admin-username">Username:</label>
+                <input type="text" id="admin-username" placeholder="Enter admin username">
+            </div>
+            <div class="form-group">
+                <label for="admin-password">Password:</label>
+                <input type="password" id="admin-password" placeholder="Enter admin password">
+            </div>
+            <button onclick="adminLogin()">Login as Admin</button>
+            <div id="login-message"></div>
+        </div>
+        
+        <!-- Admin Content -->
+        <div id="admin-content" class="admin-content">
+            <h2>Create New Puzzle</h2>
+            <form id="puzzle-form">
+                <div class="form-group">
+                    <label for="puzzle-name">Puzzle Name:</label>
+                    <input type="text" id="puzzle-name" required placeholder="e.g., Level 3">
+                </div>
+                <div class="form-group">
+                    <label for="puzzle-layout">Puzzle Layout (JSON):</label>
+                    <textarea id="puzzle-layout" required placeholder='{"width": 8, "height": 6, "grid": [["#", "#", "#", "#", "#", "#", "#", "#"], ["#", " ", " ", " ", " ", " ", " ", "#"], ["#", " ", "P", "B", " ", " ", " ", "#"], ["#", " ", " ", " ", " ", " ", " ", "#"], ["#", " ", " ", " ", " ", " ", " ", "#"], ["#", "#", "#", "#", "#", "#", "#", "#"]], "targets": [[2, 4], [3, 4]]}'></textarea>
+                    <small style="color: #666; font-size: 12px;">
+                        <strong>JSON Format Example:</strong><br>
+                        <code>{"width": 8, "height": 6, "grid": [["#", "#", "#", "#", "#", "#", "#", "#"], ["#", " ", " ", " ", " ", " ", " ", "#"], ["#", " ", "P", "B", " ", " ", " ", "#"], ["#", " ", " ", " ", " ", " ", " ", "#"], ["#", " ", " ", " ", " ", " ", " ", "#"], ["#", "#", "#", "#", "#", "#", "#", "#"]], "targets": [[2, 4], [3, 4]]}</code><br>
+                        <strong>Symbols:</strong> # = Wall, P = Player, B = Box, . = Target, (space) = Empty
+                    </small>
+                </div>
+                <button type="submit">Save Puzzle</button>
+            </form>
+            
+            <div id="message"></div>
+            
+            <div class="puzzle-list">
+                <h2>Existing Puzzles</h2>
+                <div id="puzzle-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAdmin = null;
+
+        // Check if already logged in
+        window.onload = function() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                // Verify token is still valid and user is admin
+                fetch('http://localhost:5000/api/auth/verify', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.user && data.user.role === 'admin') {
+                        showAdminContent();
+                        loadPuzzles();
+                    } else {
+                        showLoginSection();
+                    }
+                })
+                .catch(() => {
+                    showLoginSection();
+                });
+            } else {
+                showLoginSection();
+            }
+        };
+
+        function showLoginSection() {
+            document.getElementById('login-section').style.display = 'block';
+            document.getElementById('admin-content').style.display = 'none';
+        }
+
+        async function adminLogin() {
+            const username = document.getElementById('admin-username').value;
+            const password = document.getElementById('admin-password').value;
+            
+            if (!username || !password) {
+                showMessage('login-message', 'Please enter both username and password', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (data.user.role === 'admin') {
+                        localStorage.setItem('token', data.token);
+                        currentAdmin = data.user;
+                        showAdminContent();
+                        loadPuzzles();
+                    } else {
+                        showMessage('login-message', 'Access denied. Admin role required.', 'error');
+                    }
+                } else {
+                    showMessage('login-message', data.error || 'Login failed', 'error');
+                }
+            } catch (error) {
+                showMessage('login-message', 'Failed to connect to server', 'error');
+            }
+        }
+
+        function showAdminContent() {
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('admin-content').style.display = 'block';
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            currentAdmin = null;
+            showLoginSection();
+            document.getElementById('admin-username').value = '';
+            document.getElementById('admin-password').value = '';
+        }
+
+        // Puzzle form submission
+        document.getElementById('puzzle-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('puzzle-name').value;
+            const layout = document.getElementById('puzzle-layout').value;
+            
+            try {
+                // Validate JSON
+                JSON.parse(layout);
+            } catch (error) {
+                showMessage('message', 'Invalid JSON format in puzzle layout', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/puzzles', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ name, layout })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('message', 'Puzzle saved successfully!', 'success');
+                    document.getElementById('puzzle-form').reset();
+                    loadPuzzles(); // Reload puzzle list
+                } else {
+                    showMessage('message', data.error || 'Failed to save puzzle', 'error');
+                }
+            } catch (error) {
+                showMessage('message', 'Failed to connect to server', 'error');
+            }
+        });
+
+        async function loadPuzzles() {
+            try {
+                const response = await fetch('http://localhost:5000/api/puzzles');
+                const data = await response.json();
+                
+                const puzzleList = document.getElementById('puzzle-list');
+                puzzleList.innerHTML = '';
+                
+                // Add default levels (Level 1, 2, 3, and 4)
+                const defaultLevels = [
+                    {
+                        id: 1,
+                        name: "Level 1",
+                        grid: [
+                            ["#", "#", "#", "#"],
+                            ["#", "P", "B", "#"],
+                            ["#", " ", ".", "#"],
+                            ["#", "#", "#", "#"]
+                        ]
+                    },
+                    {
+                        id: 2,
+                        name: "Level 2",
+                        grid: [
+                            ["#", "#", "#", "#", "#"],
+                            ["#", "P", " ", "B", "#"],
+                            ["#", " ", ".", " ", "#"],
+                            ["#", "#", "#", "#", "#"]
+                        ]
+                    },
+                    {
+                        id: 3,
+                        name: "Level 3",
+                        grid: [
+                            ["#", "#", "#", "#", "#", "#", "#"],
+                            ["#", " ", " ", " ", " ", ".", "#"],
+                            ["#", " ", "P", "B", "B", " ", "#"],
+                            ["#", " ", " ", " ", " ", " ", "#"],
+                            ["#", " ", ".", " ", " ", " ", "#"],
+                            ["#", " ", " ", " ", " ", " ", "#"],
+                            ["#", "#", "#", "#", "#", "#", "#"]
+                        ]
+                    },
+                    {
+                        id: 4,
+                        name: "Level 4",
+                        grid: [
+                            ["#", "#", "#", "#", "#", "#", "#", "#"],
+                            ["#", " ", ".", " ", " ", " ", " ", "#"],
+                            ["#", " ", "P", " ", " ", "B", " ", "#"],
+                            ["#", " ", " ", "B", " ", " ", " ", "#"],
+                            ["#", " ", " ", " ", " ", " ", " ", "#"],
+                            ["#", " ", " ", ".", " ", "B", " ", "#"],
+                            ["#", " ", " ", " ", " ", " ", ".", "#"],
+                            ["#", "#", "#", "#", "#", "#", "#", "#"]
+                        ]
+                    }
+                ];
+                
+                // Show default levels first
+                defaultLevels.forEach(level => {
+                    const puzzleDiv = document.createElement('div');
+                    puzzleDiv.className = 'puzzle-item';
+                    puzzleDiv.style.borderLeft = '4px solid #28a745'; // Green border for default levels
+                    
+                    const gridPreview = level.grid.map(row => row.join('')).join('\n');
+                    
+                    puzzleDiv.innerHTML = `
+                        <div class="puzzle-name">${level.name} (Default)</div>
+                        <div class="puzzle-meta">ID: ${level.id} | Built-in level</div>
+                        <div class="grid-preview">${gridPreview}</div>
+                    `;
+                    
+                    puzzleList.appendChild(puzzleDiv);
+                });
+                
+                // Show admin-created levels
+                if (data.puzzles && data.puzzles.length > 0) {
+                    data.puzzles.forEach(puzzle => {
+                        try {
+                            const puzzleDiv = document.createElement('div');
+                            puzzleDiv.className = 'puzzle-item';
+                            puzzleDiv.style.borderLeft = '4px solid #007bff'; // Blue border for admin levels
+                            
+                            const layout = JSON.parse(puzzle.layout);
+                            const gridPreview = layout.grid ? layout.grid.map(row => row.join('')).join('\n') : 'Invalid grid format';
+                            
+                            puzzleDiv.innerHTML = `
+                                <div class="puzzle-name">${puzzle.name}</div>
+                                <div class="puzzle-meta">ID: ${puzzle.id} | Created: ${new Date(puzzle.created_at).toLocaleDateString()}</div>
+                                <div class="grid-preview">${gridPreview}</div>
+                                <button onclick="deletePuzzle(${puzzle.id})" class="btn-danger" style="margin-top: 10px;">Delete Puzzle</button>
+                            `;
+                            
+                            puzzleList.appendChild(puzzleDiv);
+                        } catch (parseError) {
+                            console.error('Error parsing puzzle layout:', puzzle.name, parseError);
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'puzzle-item';
+                            errorDiv.style.borderLeft = '4px solid #dc3545'; // Red border for errors
+                            errorDiv.innerHTML = `
+                                <div class="puzzle-name">${puzzle.name} (Error)</div>
+                                <div class="puzzle-meta">ID: ${puzzle.id} | Invalid layout format</div>
+                                <div class="grid-preview" style="color: #dc3545;">Failed to parse layout</div>
+                                <button onclick="deletePuzzle(${puzzle.id})" class="btn-danger" style="margin-top: 10px;">Delete Puzzle</button>
+                            `;
+                            puzzleList.appendChild(errorDiv);
+                        }
+                    });
+                }
+                
+                if (!data.puzzles || data.puzzles.length === 0) {
+                    const noPuzzlesDiv = document.createElement('div');
+                    noPuzzlesDiv.innerHTML = '<p style="color: #666; font-style: italic; margin-top: 20px;">No admin-created puzzles yet.</p>';
+                    puzzleList.appendChild(noPuzzlesDiv);
+                }
+            } catch (error) {
+                console.error('Error loading puzzles:', error);
+                document.getElementById('puzzle-list').innerHTML = '<p>Error loading puzzles.</p>';
+            }
+        }
+
+        async function deletePuzzle(puzzleId) {
+            if (!confirm(`Are you sure you want to delete puzzle ID ${puzzleId}?`)) {
+                return;
+            }
+            
+            const token = localStorage.getItem('token');
+            console.log('Delete puzzle - Token:', token ? 'Present' : 'Missing');
+            console.log('Delete puzzle - Puzzle ID:', puzzleId);
+            
+            if (!token) {
+                showMessage('message', 'Not logged in. Please login again.', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`http://localhost:5000/api/puzzles/${puzzleId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Delete response status:', response.status);
+                const data = await response.json();
+                console.log('Delete response data:', data);
+                
+                if (response.ok) {
+                    showMessage('message', 'Puzzle deleted successfully!', 'success');
+                    loadPuzzles(); // Reload puzzle list
+                } else {
+                    showMessage('message', data.error || 'Failed to delete puzzle', 'error');
+                }
+            } catch (error) {
+                console.error('Delete puzzle error:', error);
+                showMessage('message', 'Failed to connect to server', 'error');
+            }
+        }
+
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `message ${type}`;
+            element.style.display = 'block';
+            
+            // Hide message after 5 seconds
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
